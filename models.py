@@ -16,15 +16,16 @@ import numpy as np
 ######################################
 def slugmodel(pars,t,Q,d):
     # Define the storage and transmissivity
-    S = pars[1]
-    T = pars[2]
+    t = np.matrix(t)
+    S = np.matrix(pars[:,0]).T
+    T = np.matrix(pars[:,1]).T
 
     # Predict "h" using the slug model equation (see reader)
     # Separated into four lines for clarity
-    fptt = 4 * np.pi * T * t
-    ftt  = 4 * T * t
-    d2s  = d**2 * S
-    return Q/fptt * np.exp(-d2s/ftt)
+    A = Q/(4 * np.pi * T * t)
+    expP = np.divide(d**2*S,4*T)
+    expt = 1/t
+    return np.multiply(A,np.exp(expP*expt))
 
 ############################################
 # Interception Model                       #
@@ -40,7 +41,7 @@ def slugmodel(pars,t,Q,d):
 #   Output:                                #
 #     dS/dt = change in storage with time  #
 ############################################
-def interceptionModel(t,S,flag,P,E0,a,b,c,d):
+def interceptionModel(a,b,c,d,flag,P,E0,t,S):
     # Note: P and E0 are vectors with rainfall and potential evapotranspiration
     # They are thus time varying. Each iteration we thus need to derive their
     # values from interpolation. At current time, rainfall is equal to:
@@ -48,18 +49,14 @@ def interceptionModel(t,S,flag,P,E0,a,b,c,d):
     P_int = np.max(np.interp(t,P[:,1],P[:,2]),0); 
     # Same for E0
     E0_int = np.max(np.interp(t,E0[:,1],E0[:,2]),0); 
-
     # Calculate interception (unknown parameter x rainfall intensity)
     I = a * P_int;              # --> in mm/day
-
     # Calculate drainage (only if storage larger than storage capacity)
     if S > c:
         D = b*(S - c)
     else:
         D = 0
-
     # Calculate evaporation
     E = d * E0_int * S / c
-
     # Now calculate the change in storage 
     return I - D - E 
