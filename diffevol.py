@@ -4,78 +4,56 @@
 #   by James V. Soukup   #
 #   for CEE 290 HW #3    #
 ##########################
-MAXGENS = 2000
-################################
-# The models live in models.py #
-################################
+MAXGENS = 250
+##################################################
+# The models and cost functions are in models.py #
+##################################################
 import models 
 import numpy as np
 from numpy import random as rnd
 
-#######################################
-# Sum of Squared Residuals            #
-#  (Cost Function)                    #
-#  Parameters:                        #
-#    p - Model Function Parameters    #
-#    mf - Model Function              #
-#    mfargs - Model Functin Arguments #
-#    d - Data to compare to the model #
-#  Output:                            #
-#    (d-f(p))'*(d-f(p))               #
-#######################################
-def ssr(p,d,mf,mfargs):
-    pre = mf(p,*mfargs)
-    res = pre - d
-    ssr = np.sum(np.multiply(res,res),axis=1)
-    return ssr
-
-###############################
-# This is where I'd put other #
-# cost functions              #
-# ... if I had any...         #
-###############################
-
-########################################
-# diffevol function                    #
-#  Parameters:                         #
-#    Pop    - Initial Population       #
-#    cr     - Crossover Probability    #
-#    gam    - Child variability factor #
-#    pmut   - Mutation Probability     #
-#    i      - Iteration Counter        #
-#    cf     - Cost Function            #
-#    cfargs - Cost Function Arguments  #
-#    mf     - Model Function           #
-#    mfargs - Model Function Arguments #
-########################################
-def diffevol(Pop, cr, gam, pmut, i, cf, cfargs, mf, mfargs):
+##################################################
+# Differential Evolution                         #
+#  Parameters:                                   #
+#    Pop    - Initial Population                 #
+#    Cost   - Costs of Initial Pop               #
+#    cr     - Crossover Probability              #
+#    gam    - Child variability factor           #
+#    pmut   - Mutation Probability               #
+#    i      - Iteration Counter                  #
+#    cf     - Cost Function                      #
+#    cfargs - Cost Function Arguments            #
+#    mf     - Model Function                     #
+#    mfargs - Model Function Arguments           #
+##################################################
+def diffevol(Pop,cost,cr,gam,pmut,i,cf,carg):
     # Check Generation Counter #
     if (MAXGENS < i):
         # Maximum Number of generations reached
         # Return the current population
-
-        return Pop
+        return [Pop,cost]
     #########################
     # Step One: Selection   #
     #########################
     # Generate two unique random integers #
     # for each member of the population   #
     r = rnd.choice(Pop[:,0].size, (Pop[:,0].size,2))
-    # Replace any pairs of duplicates with a pair of unique labels #
-    r[r[:,0]==r[:,1]] = rnd.choice(Pop[:,0].size,r[r[:,0]==r[:,1]].shape,False)
-    # Define the mating partners #
+    # Replace pairs of duplicates with a unique pair
+    dup    = r[:,0]==r[:,1]
+    r[dup] = rnd.choice(Pop[:,0].size,r[dup].shape,False)
+    # Define the mating partners
     FirstMates = Pop[r[:,0],:]
     SecndMates = Pop[r[:,1],:]
-    #########################
-    # Step Two: Mating      #
-    #########################
-    # Partial Crossover #
+    ####################
+    # Step Two: Mating #
+    ####################
+    # Partial Crossover
     Pcr = rnd.choice([0,1],Pop.shape,p=[1-cr,cr])
-    # Recombination #
+    # Recombination
     mateDiff = np.subtract(FirstMates,SecndMates)
     crssover = np.multiply(gam*Pcr,mateDiff)
-    Child = np.mod(np.add(Pop,crssover),1)
-    # Mutation #
+    Child    = np.mod(np.add(Pop,crssover),1)
+    # Mutation
     Mut = rnd.rand(*Child.shape)
     Mut = Mut<pmut
     #print Mut.shape
@@ -84,42 +62,96 @@ def diffevol(Pop, cr, gam, pmut, i, cf, cfargs, mf, mfargs):
     #########################
     # Step Three: Rejection #
     #########################
-    # Extract the Cost Function and arguments
-    # Evaluate Cost for Initial Population
-    costi = cf(Pop,cfargs,mf,mfargs)
-    #print costi.shape
     # Evaluate Cost for Child Population
-    costc = cf(Child,cfargs,mf,mfargs)
+    childCost = cf(Child,carg)
+    costc = childCost[1]
+    costp = cost[1]
     # Replace dominated offspring with parent
-    dom = np.array((costc>costi)).reshape((-1,))
+    dom = np.array((costc>costp)).reshape((-1,))
     Child[dom] = Pop[dom]
+    costc = np.minimum(costc,costp)
+    childCost[1] = costc
 
     ##############################
     # Create the next generation #
     ##############################
-    diffevol(Child,cr,gam,pmut,i+1,cf,cfargs,mf,mfargs)
-    return Child
+    diffevol(Child,costc,cr,gam,pmut,i+1,cf,carg)
+    return [Child,childCost]
 
-def testFunction():
+##################################################
+#   Differential Evolution Test#1 - Slug Model   #
+##################################################
+# Variable Dictionary:                           #
+#   N - Population Size                          #
+#   p - Number of parameters                     #
+#   g - Child Variability (gamma)                # 
+#   c - Crossover Probability (Pcr)              #
+#   d - Observation Well distance [m]            #
+#   Q - Slug volume [m3]                         #
+#   m - Mutation Probability (Pmut)              #
+#   h - Observation Data                         #
+#   t - Time of sampling                         #
+#   Pop - Initial population                     #
+#     Pop[1] - S                                 #
+#     Pop[2] - T                                 #
+##################################################
+def slugModelTest():
+    print("SLUG MODEL TEST")
+    # Initialize
+    N = 50
+    p = 2
+    g = 0.7
+    c = 0.9
+    d = 10
+    Q = 50
+    m = float(1)/float(p)
+    h = np.array([0.55,0.47,0.30,0.22,0.17,0.14])
+    t = np.array([5.00,10.0,20.0,30.0,40.0,50.0])
+    Pop  = rnd.rand(N,p)
+    cost = models.slugCost(Pop,[t,Q,d,h])
+    # Differential Evolution parameters
+    # Run the Differential Evolution Algorithm
+    finalOut = diffevol(Pop,cost,c,g,m,0,
+                        models.slugCost,[t,Q,d,h])
+    # Interpret the Output
+    finalPop  = finalOut[0]
+    finalCost = finalOut[1]
+    finalSSR  = finalCost[1]
+    opt = finalPop[np.argmin(finalSSR)]
+    # Print the results
+    print("Parameter Values: {0}".format(opt))
+    print("Cost: {0}".format(np.min(finalSSR)))
+
+def interceptionModelTest():
+    print("INTERCEPTION MODEL TEST")
     ################################
-    #  Parameters                  #
+    #  Initialization:             #
     #   Population Size (N)        #
     #   Number of parameters (p)   #
     #   Child Variability (gam)    #
     #   Crossover Probability (cr) #
+    #   Mutation Probability (pmut)#
     ################################
-    N = 100
-    p = 2
-    gam = 0.7
-    cr = 0.9
-    pmut = float(1)/float(p)
-    # Initial Population
-    Pop = rnd.rand(N,p)
-    h = np.array([0.55, 0.47, 0.30, 0.22, 0.17, 0.14])
-    t = np.array([5.0, 10.0, 20.0, 30.0, 40.0, 50.0])
-    d = 10
-    Q = 50
-    final = diffevol(Pop,cr,gam,pmut,0,ssr,h,models.slugmodel,[t,Q,d])
-    #print final
-    return final
-testFunction()
+    #N = 100
+    #p = 4
+    #gam = 0.7
+    #cr = 0.9
+    #pmut = float(1)/float(p)
+    #obsPrec = np.array([])
+    #obsEvap = np.array([])
+    #obsTime = np.array([])
+    #obsStor = np.array([])
+    #dSdt    = np.gradient(obsStor,obsTime)
+    # Initial Population and Cost
+    #Pop  = rnd.rand(N,p)
+    # Run the Differential Evolution Algorithm
+    #finalOut  = diffevol(Pop,cost,cr,gam,pmut,0,)
+    # Interpret the Output
+    #finalPop  = finalOut[0]
+    #finalCost = finalOut[1]
+    #optimum = finalPop[np.argmin(finalCost)]
+    #print("Final Parameter Values: {0}".format(optimum))
+    #print("Final Cost: {0}".format(np.min(finalCost)))
+
+slugModelTest()
+#interceptionModelTest()
