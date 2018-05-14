@@ -157,16 +157,32 @@ def interceptionModel(t,S,T,Pr,E0,a,b,c,d):
 #   Args[4] = Data                               #
 ##################################################
 def interceptCost(dt, Args, Pars):
+    # Extract Parameters
     a = Pars[:,0]
     b = Pars[:,1]
     c = Pars[:,2]
     d = Pars[:,3]
+    # Extract Observations
     obsTime = Args[:,0]
     obsStor = Args[:,1]
     obsPrec = Args[:,2]
     obsEvap = Args[:,3]
-    simStor = np.zeros((obsStor.size,a.size))
+    # Prepare to simulate with Runge-Kutta 4
+    # Rebundle arguments
     args = [obsTime,obsPrec,obsEvap,a,b,c,d]
+    # Handle for model function
+    mf = interceptionModel
+    # Initialize output array
+    simStor = np.zeros((obsTime.size,a.size))
+    # Grab initial conditiion
+    simStor[0,:] = obsStor[0]
+    # Iterate over observation period
     for i,t in enumerate(obsTime):
-        simStor[i,:] = rk4(t,obsStor[0],dt,interceptionModel,args)
-    return ssr(simStor.T,obsStor)
+        # Index of rk4 step result
+        j = i+1
+        # Prevent out-of-bounds array access
+        if j >= obsTime.size: break
+        # Take an rk4 step
+        simStor[j,:] = rk4(t,simStor[i,:],dt,mf,args)
+    # Return the simulation results and the cost (SSR)
+    return [simStor.T,ssr(simStor.T,obsStor)]
