@@ -8,6 +8,7 @@
 # The models and cost functions are in models.py #
 ##################################################
 import models 
+import matplotlib.pyplot as plt
 import numpy as np
 from numpy import random as rnd
 
@@ -134,13 +135,19 @@ def interceptionModelTest():
     ################################
     obs = np.genfromtxt('measurement.csv',delimiter=',')
     obsTime = obs[:,0]
+    obsStor = obs[:,1]
     dt = obsTime[1]-obsTime[0]
-    Pop = rnd.rand(200,4)
-    cost = models.interceptCost(dt,obs,Pop)
+    #Pop = rnd.rand(2,4)
+    Pop = np.array([[0.3, 0.099, 0.28, 0.5],[0.4, 0.009, 0.64, 0.4]])
+    Sims,cost = models.interceptCost(dt,obs,Pop)
     finalSSR  = cost[1]
-    opt = Pop[np.argmin(finalSSR)]
-    print("Parameter Values: {0}".format(opt))
+    opt = np.argmin(finalSSR)
+    optPars = Pop[opt]
+    optSims = Sims[opt]
+    print("Parameter Values: {0}".format(optPars))
     print("Cost: {0}".format(np.min(finalSSR)))
+    plt.plot(obsTime,optSims,obsTime,obsStor,'bs')
+    plt.show()
     return cost
 
 slugModelTest()
