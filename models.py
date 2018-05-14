@@ -25,9 +25,30 @@ def ssr(p,d):
 ########################################
 # Runge Kutta Fourth Order: Integrator #
 ########################################
-def rk4(t0,u0,dt,f,pars,args):
-    # Get four simulation values
-    return 0
+# Input Dictionary                     #
+#  t0 - Current Simulation Time        #
+#  y0 - Current Simulation Value       #
+#  dt - Time step to next simulation   #
+#   f - Model Function                 #
+#  pars - Model Parameters             #
+#  args - Model Function Arguments     #
+########################################
+# This Integrator expects a particular #
+# model function type. The model must  #
+# represent a differential equation of #
+# the form: y' = f(t,y)                #
+# Therefore the function must take as  #
+# input the current simulation value,  #
+# the current simulation time, and any #
+# additional inputs. It must output y' #
+# for the given time and estimate      #
+########################################
+def rk4(t0,y0,dt,f,fargs):
+    s1 = f(t0,     y0,     *fargs)
+    s2 = f(t0+dt/2,y0+s1/2,*fargs)
+    s3 = f(t0+dt/2,y0+s2/2,*fargs)
+    s4 = f(t0+dt,  y0+s3,  *fargs)
+    return y0+dt*(s1+2*s2+2*s3+s4)/6
     
 ########################################
 # Slug Model                           #   
@@ -87,20 +108,31 @@ def slugCost(Pars, Args):
 #   Output:                                 #
 #     dS/dt = change in storage with time   #
 #############################################
-def interceptionModel(a,b,c,d,t,S,P,E0):
-    # Interpolate Precipation at simulation time
-    P_int = np.max(np.interp(t,P[:,1],P[:,2]),0)
-    # Same for E0
-    E0_int = np.max(np.interp(t,E0[:,1],E0[:,2]),0)
-    # Calculate interception
-    I = a * P_int
-    # Calculate drainage 
-    # Only if storage exceeds capacity
+    # Map parameters to feasible space
+    # a - 0-1    needs no mapping
+    # b - 1-1000 bm = 999*b+1
+    # c - 0-5    cm = 5*c
+    # d - 0-3    dm = 3*d
+    am = a
+    bm = 999*b+1
+    cm = 5*c
+    dm = 3*d
+    # Interpolate Precipitation from data
+    Pr_int = np.max(np.interp(t,T,Pr),0)
+    # Interpolate Potential Evap from data
+    E0_int = np.max(np.interp(t,T,E0),0)
+    # Compute Interception
+    I = a*Pr_int
+    # Compute Drainage dependent on storage
+    # Drainage is zero by default
     D = np.zeros(a.size)
-    D[S>c] = b*(S-c)
-    # Calculate evaporation
+    # Theoretical drainage values
+    G = b*(S-c)
+    # Drainage when storage exceeds capacity
+    D[S>c] = G[S>c]
+    # Compute Evaporation
     E = d*E0_int*S/c
-    # Now calculate the change in storage 
+    # Return change in storage
     return I-D-E
 
 ##################################################
@@ -121,7 +153,17 @@ def interceptionModel(a,b,c,d,t,S,P,E0):
 #   Args[3] = E0                                 #
 #   Args[4] = Data                               #
 ##################################################
-def interceptCost(Pars, Args):
-    # Integrate the model with the given pars
-    # Integrate with Runge Kutta 4th Order
-    return 0
+def interceptCost(dt, Args, Pars):
+    a = Pars[:,0]
+    b = Pars[:,1]
+    c = Pars[:,2]
+    d = Pars[:,3]
+    obsTime = Args[:,0]
+    obsStor = Args[:,1]
+    obsPrec = Args[:,2]
+    obsEvap = Args[:,3]
+    simStor = np.zeros((obsStor.size,a.size))
+    args = [obsTime,obsPrec,obsEvap,a,b,c,d]
+    for i,t in enumerate(obsTime):
+        simStor[i,:] = rk4(t,obsStor[0],dt,interceptionModel,args)
+    return ssr(simStor.T,obsStor)

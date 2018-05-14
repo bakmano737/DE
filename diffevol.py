@@ -4,7 +4,6 @@
 #   by James V. Soukup   #
 #   for CEE 290 HW #3    #
 ##########################
-MAXGENS = 250
 ##################################################
 # The models and cost functions are in models.py #
 ##################################################
@@ -20,15 +19,16 @@ from numpy import random as rnd
 #    cr     - Crossover Probability              #
 #    gam    - Child variability factor           #
 #    pmut   - Mutation Probability               #
-#    i      - Iteration Counter                  #
+#    i      - Generation Counter                 #
+#    imax   - Max Generation Count               #
 #    cf     - Cost Function                      #
 #    cfargs - Cost Function Arguments            #
 #    mf     - Model Function                     #
 #    mfargs - Model Function Arguments           #
 ##################################################
-def diffevol(Pop,cost,cr,gam,pmut,i,cf,carg):
+def diffevol(Pop,cost,cr,gam,pmut,i,imax,cf,carg):
     # Check Generation Counter #
-    if (MAXGENS < i):
+    if (imax < i):
         # Maximum Number of generations reached
         # Return the current population
         return [Pop,cost]
@@ -75,7 +75,7 @@ def diffevol(Pop,cost,cr,gam,pmut,i,cf,carg):
     ##############################
     # Create the next generation #
     ##############################
-    diffevol(Child,costc,cr,gam,pmut,i+1,cf,carg)
+    diffevol(Child,costc,cr,gam,pmut,i+1,imax,cf,carg)
     return [Child,childCost]
 
 ##################################################
@@ -98,7 +98,7 @@ def diffevol(Pop,cost,cr,gam,pmut,i,cf,carg):
 def slugModelTest():
     print("SLUG MODEL TEST")
     # Initialize
-    N = 50
+    N = 200
     p = 2
     g = 0.7
     c = 0.9
@@ -111,7 +111,7 @@ def slugModelTest():
     cost = models.slugCost(Pop,[t,Q,d,h])
     # Differential Evolution parameters
     # Run the Differential Evolution Algorithm
-    finalOut = diffevol(Pop,cost,c,g,m,0,
+    finalOut = diffevol(Pop,cost,c,g,m,0,900,
                         models.slugCost,[t,Q,d,h])
     # Interpret the Output
     finalPop  = finalOut[0]
@@ -132,26 +132,16 @@ def interceptionModelTest():
     #   Crossover Probability (cr) #
     #   Mutation Probability (pmut)#
     ################################
-    #N = 100
-    #p = 4
-    #gam = 0.7
-    #cr = 0.9
-    #pmut = float(1)/float(p)
-    #obsPrec = np.array([])
-    #obsEvap = np.array([])
-    #obsTime = np.array([])
-    #obsStor = np.array([])
-    #dSdt    = np.gradient(obsStor,obsTime)
-    # Initial Population and Cost
-    #Pop  = rnd.rand(N,p)
-    # Run the Differential Evolution Algorithm
-    #finalOut  = diffevol(Pop,cost,cr,gam,pmut,0,)
-    # Interpret the Output
-    #finalPop  = finalOut[0]
-    #finalCost = finalOut[1]
-    #optimum = finalPop[np.argmin(finalCost)]
-    #print("Final Parameter Values: {0}".format(optimum))
-    #print("Final Cost: {0}".format(np.min(finalCost)))
+    obs = np.genfromtxt('measurement.csv',delimiter=',')
+    obsTime = obs[:,0]
+    dt = obsTime[1]-obsTime[0]
+    Pop = rnd.rand(200,4)
+    cost = models.interceptCost(dt,obs,Pop)
+    finalSSR  = cost[1]
+    opt = Pop[np.argmin(finalSSR)]
+    print("Parameter Values: {0}".format(opt))
+    print("Cost: {0}".format(np.min(finalSSR)))
+    return cost
 
 slugModelTest()
-#interceptionModelTest()
+interceptionModelTest()
