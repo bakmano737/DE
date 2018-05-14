@@ -100,6 +100,7 @@ def slugCost(Pars, Args):
 #   Arguments:                              #
 #     t  = time [days]                      #
 #     S  = storage [mm]                     #
+#     T  = Observation Domain               #
 #     P  = rainfall [mm/day]                #   
 #     E0 = potential evaporation [mm/day]   #
 #     a  = interception efficiency [-]      #
