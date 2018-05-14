@@ -43,13 +43,14 @@ def ssr(p,d):
 # additional inputs. It must output y' #
 # for the given time and estimate      #
 ########################################
-def rk4(t0,y0,dt,f,fargs):
-    s1 = f(t0,     y0,     *fargs)
-    s2 = f(t0+dt/2,y0+s1/2,*fargs)
-    s3 = f(t0+dt/2,y0+s2/2,*fargs)
-    s4 = f(t0+dt,  y0+s3,  *fargs)
-    return y0+dt*(s1+2*s2+2*s3+s4)/6
-    
+def rk4(tn,yn,dt,f,fargs):
+    k1 = dt*f(tn,     yn,     *fargs)
+    k2 = dt*f(tn+dt/2,yn+k1/2,*fargs)
+    k3 = dt*f(tn+dt/2,yn+k2/2,*fargs)
+    k4 = dt*f(tn+dt,  yn+k3,  *fargs)
+    yo = yn+(1.0/6.0)*(k1+2*k2+2*k3+k4)
+    return yo
+
 ########################################
 # Slug Model                           #   
 #  Arguments:                          #
