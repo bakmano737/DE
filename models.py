@@ -109,6 +109,7 @@ def slugCost(Pars, Args):
 #   Output:                                 #
 #     dS/dt = change in storage with time   #
 #############################################
+def interceptionModel(t,S,T,Pr,E0,a,b,c,d):
     # Map parameters to feasible space
     # a - 0-1    needs no mapping
     # b - 1-1000 bm = 999*b+1
@@ -119,20 +120,20 @@ def slugCost(Pars, Args):
     cm = 5*c
     dm = 3*d
     # Interpolate Precipitation from data
-    Pr_int = np.max(np.interp(t,T,Pr),0)
+    Pr_int = np.interp(t,T,Pr)
     # Interpolate Potential Evap from data
-    E0_int = np.max(np.interp(t,T,E0),0)
+    E0_int = np.interp(t,T,E0)
     # Compute Interception
-    I = a*Pr_int
+    I = am*Pr_int
     # Compute Drainage dependent on storage
     # Drainage is zero by default
-    D = np.zeros(a.size)
+    D = np.zeros(am.size)
     # Theoretical drainage values
-    G = b*(S-c)
+    G = bm*(S-cm)
     # Drainage when storage exceeds capacity
-    D[S>c] = G[S>c]
+    D[S>cm] = G[S>cm]
     # Compute Evaporation
-    E = d*E0_int*S/c
+    E = dm*E0_int*S/cm
     # Return change in storage
     return I-D-E
 
