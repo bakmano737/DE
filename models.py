@@ -133,7 +133,8 @@ def interceptionModel(t,S,T,Pr,E0,a,b,c,d):
     # Drainage when storage exceeds capacity
     D[S>cm] = G[S>cm]
     # Compute Evaporation
-    E = dm*E0_int*S/cm
+    cm1 = np.divide(1,cm)
+    E = dm*E0_int*S*cm1
     # Return change in storage
     return I-D-E
 
