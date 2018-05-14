@@ -150,11 +150,10 @@ def interceptionModel(t,S,T,Pr,E0,a,b,c,d):
 #   Pars[2] = c                                  #
 #   Pars[3] = d                                  #
 #  Args                                          #
-#   Args[0] = t                                  #
-#   Args[1] = S                                  #
-#   Args[2] = P                                  #
-#   Args[3] = E0                                 #
-#   Args[4] = Data                               #
+#   Args[0] = Observed Times                     #
+#   Args[1] = Observed Storage                   #
+#   Args[2] = Observed Precipitation             #
+#   Args[3] = Observed Evaporation Potential     #
 ##################################################
 def interceptCost(dt, Args, Pars):
     # Extract Parameters
