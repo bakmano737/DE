@@ -65,7 +65,7 @@ def diffevol(Pop,cost,cr,gam,pmut,i,imax,cf,carg):
     #########################
     # Evaluate Cost for Child Population
     childCost = cf(Child,carg)
-    costc = childCost[1]
+    costc = childCost[1][1]
     costp = cost[1]
     # Replace dominated offspring with parent
     dom = np.array((costc>costp)).reshape((-1,))
@@ -133,22 +133,32 @@ def interceptionModelTest():
     #   Crossover Probability (cr) #
     #   Mutation Probability (pmut)#
     ################################
+    N = 100
+    p = 4
+    c = 0.9
+    g = 0.7
+    m = 0.1
     obs = np.genfromtxt('measurement.csv',delimiter=',')
     obsTime = obs[:,0]
     obsStor = obs[:,1]
     dt = obsTime[1]-obsTime[0]
-    #Pop = rnd.rand(2,4)
-    Pop = np.array([[0.3, 0.099, 0.28, 0.5],[0.4, 0.009, 0.64, 0.4]])
-    Sims,cost = models.interceptCost(dt,obs,Pop)
-    finalSSR  = cost[1]
+    Pop = rnd.uniform(0.01, 1.01,(N,p))
+    Sims,cost = models.interceptCost(Pop,[obs,dt])
+    cf = models.interceptCost
+    finalOut = diffevol(Pop,cost,c,g,m,0,950,cf,[obs,dt])
+    # Interpret the Output
+    finalPop  = finalOut[0]
+    finalCost = finalOut[1]
+    finalSSR  = finalCost[1][1]
+    finalSims = finalCost[0]
     opt = np.argmin(finalSSR)
-    optPars = Pop[opt]
-    optSims = Sims[opt]
+    optPars = finalPop[opt]
+    optSims = finalSims[opt]
     print("Parameter Values: {0}".format(optPars))
     print("Cost: {0}".format(np.min(finalSSR)))
     plt.plot(obsTime,optSims,obsTime,obsStor,'bs')
     plt.show()
     return cost
 
-slugModelTest()
+#slugModelTest()
 interceptionModelTest()

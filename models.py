@@ -5,6 +5,7 @@
 ########################################
 
 import numpy as np
+import rungekutta as rk
 
 ########################################
 # Sum of Squared Residuals             #
@@ -21,35 +22,6 @@ def ssr(p,d):
     res = p - d
     ssr = np.sum(np.multiply(res,res),axis=1)
     return [res,ssr]
-
-########################################
-# Runge Kutta Fourth Order: Integrator #
-########################################
-# Input Dictionary                     #
-#  t0 - Current Simulation Time        #
-#  y0 - Current Simulation Value       #
-#  dt - Time step to next simulation   #
-#   f - Model Function                 #
-#  pars - Model Parameters             #
-#  args - Model Function Arguments     #
-########################################
-# This Integrator expects a particular #
-# model function type. The model must  #
-# represent a differential equation of #
-# the form: y' = f(t,y)                #
-# Therefore the function must take as  #
-# input the current simulation value,  #
-# the current simulation time, and any #
-# additional inputs. It must output y' #
-# for the given time and estimate      #
-########################################
-def rk4(tn,yn,dt,f,fargs):
-    k1 = dt*f(tn,     yn,     *fargs)
-    k2 = dt*f(tn+dt/2,yn+k1/2,*fargs)
-    k3 = dt*f(tn+dt/2,yn+k2/2,*fargs)
-    k4 = dt*f(tn+dt,  yn+k3,  *fargs)
-    yo = yn+(1.0/6.0)*(k1+2*k2+2*k3+k4)
-    return yo
 
 ########################################
 # Slug Model                           #   
@@ -93,7 +65,7 @@ def slugCost(Pars, Args):
     data = Args[3]
     slug = slugModel(Pars,t,Q,d)
     cost = ssr(slug,data)
-    return cost
+    return [slug,cost]
 
 #############################################
 # Interception Model                        #
@@ -151,22 +123,27 @@ def interceptionModel(t,S,T,Pr,E0,a,b,c,d):
 #   Pars[2] = c                                  #
 #   Pars[3] = d                                  #
 #  Args                                          #
-#   Args[0] = Observed Times                     #
-#   Args[1] = Observed Storage                   #
-#   Args[2] = Observed Precipitation             #
-#   Args[3] = Observed Evaporation Potential     #
+#   Args[0] = Observations                       #
+#   Args[1] = Observation Interval               #
+#  Obs                                           #
+#   Obs[:,0] = Observed Times                    #
+#   Obs[:,1] = Observed Storage                  #
+#   Obs[:,2] = Observed Precipitation            #
+#   Obs[:,3] = Observed Evaporation Potential    #
 ##################################################
-def interceptCost(dt, Args, Pars):
+def interceptCost(Pars, Args):
     # Extract Parameters
     a = Pars[:,0]
     b = Pars[:,1]
     c = Pars[:,2]
     d = Pars[:,3]
     # Extract Observations
-    obsTime = Args[:,0]
-    obsStor = Args[:,1]
-    obsPrec = Args[:,2]
-    obsEvap = Args[:,3]
+    Obs = Args[0]
+    dt  = Args[1]
+    obsTime = Obs[:,0]
+    obsStor = Obs[:,1]
+    obsPrec = Obs[:,2]
+    obsEvap = Obs[:,3]
     # Prepare to simulate with Runge-Kutta 4
     # Rebundle arguments
     args = [obsTime,obsPrec,obsEvap,a,b,c,d]
@@ -183,6 +160,6 @@ def interceptCost(dt, Args, Pars):
         # Prevent out-of-bounds array access
         if j >= obsTime.size: break
         # Take an rk4 step
-        simStor[j,:] = rk4(t,simStor[i,:],dt,mf,args)
+        simStor[j,:] = rk.rk4(t,simStor[i,:],dt,mf,args)
     # Return the simulation results and the cost (SSR)
     return [simStor.T,ssr(simStor.T,obsStor)]
