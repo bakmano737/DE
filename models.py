@@ -92,24 +92,25 @@ def interceptionModel(t,S,T,Pr,E0,a,b,c,d):
     bm = 999*b+1
     cm = 5*c
     dm = 3*d
+    S = np.maximum(S,0)
     # Interpolate Precipitation from data
-    Pr_int = np.interp(t,T,Pr)
+    Pr_int = np.maximum(np.interp(t,T,Pr),0)
     # Interpolate Potential Evap from data
-    E0_int = np.interp(t,T,E0)
+    E0_int = np.maximum(np.interp(t,T,E0),0)
     # Compute Interception
     I = am*Pr_int
-    # Compute Drainage dependent on storage
-    # Drainage is zero by default
-    D = np.zeros(am.size)
-    # Theoretical drainage values
-    G = bm*(S-cm)
-    # Drainage when storage exceeds capacity
-    D[S>cm] = G[S>cm]
+    # Compute Drainage 
+    # Drain only when S>cm
+    if S>cm:
+        D = bm*(S-cm)
+    else:
+        D = 0
     # Compute Evaporation
-    cm1 = np.divide(1,cm)
-    E = dm*E0_int*S*cm1
+    E = (dm*E0_int)*(S/cm)
     # Return change in storage
-    return I-D-E
+    dS = I-D-E
+    #s1 = S+ds
+    return dS
 
 ##################################################
 # Interception Model Cost                        #
@@ -131,7 +132,7 @@ def interceptionModel(t,S,T,Pr,E0,a,b,c,d):
 #   Obs[:,2] = Observed Precipitation            #
 #   Obs[:,3] = Observed Evaporation Potential    #
 ##################################################
-def interceptCost(Pars, Args):
+def interceptCostRK4(Pars, Args):
     # Extract Parameters
     a = Pars[:,0]
     b = Pars[:,1]
@@ -163,3 +164,45 @@ def interceptCost(Pars, Args):
         simStor[j,:] = rk.rk4(t,simStor[i,:],dt,mf,args)
     # Return the simulation results and the cost (SSR)
     return [simStor.T,ssr(simStor.T,obsStor)]
+
+def interceptCostRKF45(Pars, Args):
+    # Extract Parameters
+    A = Pars[:,0]
+    B = Pars[:,1]
+    C = Pars[:,2]
+    D = Pars[:,3]
+    # Extract Observations
+    Obs = Args[0]
+    obsTime = Obs[:,0]
+    obsStor = Obs[:,1]
+    obsPrec = Obs[:,2]
+    obsEvap = Obs[:,3]
+    # Rebundle
+    #args = [obsTime,obsPrec,obsEvap,a,b,c,d]
+    # Simulate with Runge-Kutta-Fehlberg 45 Integrator
+    mf = interceptionModel
+    obsSims = np.zeros((obsTime.size,A.size))
+    sims = []
+    csts = []
+    # Initial Conditions
+    for i in range(A.size-1):
+        t = obsTime[0]
+        s = obsStor[0]
+        dt  = Args[1]
+        simn = np.array([t, s])
+        a = A[i]
+        b = B[i]
+        c = C[i]
+        d = D[i]
+        args = [obsTime,obsPrec,obsEvap,a,b,c,d]
+        while obsTime[obsTime.size-1] >= t:
+            dt,t,s = rk.rkf45(t,s,dt,mf,args)
+            simn = np.vstack((simn,[t,s]))
+        # Compute SSR
+        simTime = simn[:,0]
+        simStor = simn[:,1]
+        obsSims[:,i] = np.interp(obsTime,simTime,simStor)
+        sims.append(simn)
+    csts = ssr(obsSims.T,obsStor)
+    return [sims,csts]
+	

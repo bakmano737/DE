@@ -95,7 +95,8 @@ def rkf45(tn,yn,dt,f,fargs):
     bz4 = 28561.0/56430.0
     bz5 = -9.0/50.0
     bz6 = 2.0/55.0
-    tol = 0.01
+    tol = 0.001
+    dtm = 0.0001
     # First k value
     t1 = tn
     y1 = yn
@@ -125,17 +126,26 @@ def rkf45(tn,yn,dt,f,fargs):
     # Fifth Order Approximation
     zk = yn + dt*(bz1*k1 + bz3*k3 + bz4*k4 + bz5*k5 + bz6*k6)
     # Optimal Step
-    s=((tol*dt)/(2.0*np.absolute(zk-yk)+0.00000001))**(0.25)
+    df = abs(zk-yk) 
+    if df > 0:
+        s=((tol*dt)/(2.0*df))**(0.25)
+    else:
+        s=4
     if s<1:
         # Error is too large. Reduce step
-        dt=0.8*dt
-        yo=yn
-        to=tn
-    elif s>3:
+        if (0.8*dt)>=dtm :
+            dt=0.8*dt 
+            yo=yn
+            to=tn
+        else:
+            dt=dtm
+            yo=yk
+            to=tn+dt
+    elif s>2:
         # Error is too small. Increase step
         to=tn+dt
         yo=yk
-        dt=1.2*dt
+        dt=1.5*dt
     else:
         # Goldilocks
         to=tn+dt
