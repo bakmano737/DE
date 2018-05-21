@@ -15,18 +15,19 @@ from numpy import random as rnd
 ##################################################
 # Differential Evolution                         #
 #  Parameters:                                   #
-#    Pop    - Initial Population                 #
-#    Cost   - Costs of Initial Pop               #
-#    cr     - Crossover Probability              #
+#    Pop    - Initial population of parameters   #
+#    Cost   - Costs of initial population        #
+#    pcr    - Crossover probability              #
 #    gam    - Child variability factor           #
 #    pmut   - Mutation Probability               #
-#    i      - Generation Counter                 #
+#    i      - Generation counter                 #
 #    imax   - Max Generation Count               #
 #    cf     - Cost Function                      #
 #    cfargs - Cost Function Arguments            #
 #    mf     - Model Function                     #
 #    mfargs - Model Function Arguments           #
 ##################################################
+######################################################################
 def diffevol(Pop,cost,cr,gam,pmut,i,im,h,etol,cf,carg):
     # Check Generation Counter #
     if (im <= i):
@@ -86,111 +87,99 @@ def diffevol(Pop,cost,cr,gam,pmut,i,im,h,etol,cf,carg):
     ##############################
     return diffevol(Child,childCost,cr,gam,pmut,i+1,im,h,etol,cf,carg)
 
-##################################################
-#   Differential Evolution Test#1 - Slug Model   #
-##################################################
-# Variable Dictionary:                           #
-#   N - Population Size                          #
-#   p - Number of parameters                     #
-#   g - Child Variability (gamma)                # 
-#   c - Crossover Probability (Pcr)              #
-#   d - Observation Well distance [m]            #
-#   Q - Slug volume [m3]                         #
-#   m - Mutation Probability (Pmut)              #
-#   h - Observation Data                         #
-#   t - Time of sampling                         #
-#   Pop - Initial population                     #
-#     Pop[1] - S                                 #
-#     Pop[2] - T                                 #
-##################################################
-def slugModelTest():
-    print("SLUG MODEL TEST")
-    # Initialize
-    etol = 1.0e-6
+######################################################################
+# Simulator Function - Use this to run DE and process the reuslts    #
+######################################################################
+def deSimulate(G,N,P,pcr,fde,pmut,etol,cf,carg):
+    # Create the history array
+    Hist = np.zeros(G)
+    # Create an initial population
+    Pop = rnd.rand(N,P)
+    # Evaluate cost function for initial pop
+    Cost = cf(Pop,carg)
+    # Run DE
+    FinalGen = diffevol(Pop,Cost,pcr,fde,pmut,0,G,Hist,etol,cf,carg)
+    # Parse the output [Population,[[simtim,simslug],[res,ssr]]]
+    FinalPop = FinalGen[0]
+    FinalCst = FinalGen[1]
+    FinalSSR = FinalCst[1][1]
+    # Determine the individual with the lowest SSR
+    optimum  = np.argmin(FinalSSR)
+    # Get the parameters, cost, and simulation of the champion
+    BestPars = FinalPop[optimum]
+    BestCost = FinalSSR[optimum]
+    BestVals = FinalCst[0][optimum]
+    # Save the current output for later
+    return [BestPars,BestCost,BestVals,Hist]
+
+# Problem #8 - Plots
+# Use this function to plot the reuslts for Slug and Storage models
+def dePlots():
+    # Number of Generations
     G = 250
-    N = 20
-    p = 2
-    g = 0.7
-    c = 0.9
+    # Population Size
+    N = 50
+    # Other DE Parameters
+    # Crossover Probability
+    pcr = 0.9
+    # Recombination Variability
+    fde = 0.7
+    # Exit Error Tolerance
+    etol = 1e-6
+
+    ##################################################################
+    # Slug Model
+    ##################################################################
+    obsSlug  = np.array([0.55,0.47,0.30,0.22,0.17,0.14])
+    obsTime  = np.array([5.00,10.0,20.0,30.0,40.0,50.0])
+    sP = 2
     d = 10
     Q = 50
-    m = float(1)/float(p)
-    h = np.array([0.55,0.47,0.30,0.22,0.17,0.14])
-    t = np.array([5.00,10.0,20.0,30.0,40.0,50.0])
-    Pop  = rnd.rand(N,p)
-    hs = np.zeros(G)
-    cost = models.slugCost(Pop,[t,Q,d,h])
-    hs[0] = np.min(cost[1][1])
-    # Differential Evolution parameters
-    # Run the Differential Evolution Algorithm
-    finalOut = diffevol(Pop,cost,c,g,m,1,G,hs,etol,
-                        models.slugCost,[t,Q,d,h])
-    # Interpret the Output
-    finalPops = finalOut[0]
-    finalSims = finalOut[1]
-    #finalStor = finalSims[0]
-    finalCost = finalSims[1]
-    finalSSRs = finalCost[1]
-    opt = finalPops[np.argmin(finalSSRs)]
-    # Print the results
-    print("Parameter Values: {0}".format(opt))
-    print("Cost: {0}".format(np.min(finalSSRs)))
-    ns = np.arange(hs.size)
-    plt.plot(ns,hs)
+    spm = float(1)/float(sP)
+    scf = models.slugCost
+    sca = [obsTime,Q,d,obsSlug]
+    Slugs = []
+    Obs = np.genfromtxt('measurement.csv',delimiter=',')
+    dt = Obs[1,0] - Obs[0,0]
+    ica = [Obs,dt]
+    iP = 4
+    ipm = float(1)/float(iP)
+    icf = models.interceptionModel_CF
+    Stors = []
+    sims = 3
+    while sims > 0:
+        Slugs.append(deSimulate(G,N,sP,pcr,fde,spm,etol,scf,sca))
+        Stors.append(deSimulate(G,N,iP,pcr,fde,ipm,etol,icf,ica))
+        sims -= 1
+
+    # Plot Slug Model Results
+    ###
+    slugPlt = plt.subplot(121)
+    storPlt = plt.subplot(122)
+    for i,(slug,stor) in enumerate(zip(Slugs,Stors)):
+        simn = "Sim {0}".format(i)
+        print(simn)
+        print("Slug Model")
+        print("\tParameter Values:")
+        print("\t\tS={0:6.4f}".format(slug[0][0]))
+        print("\t\tT={0:6.4f}".format(slug[0][1]))
+        print("\tCost: {0:10.6f}".format(np.min(slug[1])))
+        slugPlt.semilogy(slug[3], label=simn)
+        print("Interception Model")
+        print("\tParameter Values:")
+        print("\t\ta={0:6.4f}".format(stor[0][0]))
+        print("\t\tb={0:6.3f}".format(999*stor[0][1]+1))
+        print("\t\tc={0:6.4f}".format(5.0*stor[0][2]))
+        print("\t\td={0:6.4f}".format(3.0*stor[0][3]))
+        print("\tCost: {0:10.6f}".format(np.min(stor[1])))
+        storPlt.semilogy(stor[3], label=simn)
+    ###
+    slugPlt.xlabel('Generation')
+    slugPlt.ylabel('Minimum SSR')
+    slugPlt.legend()
+    storPlt.xlabel('Generation')
+    storPlt.ylabel('Minimum SSR')
+    storPlt.legend()
     plt.show()
 
-def interceptionModelTest():
-    print("INTERCEPTION MODEL TEST")
-    ################################
-    #  Initialization:             #
-    #   Population Size (N)        #
-    #   Number of parameters (p)   #
-    #   Child Variability (gam)    #
-    #   Crossover Probability (cr) #
-    #   Mutation Probability (pmut)#
-    ################################
-    etol = 1.0e-2
-    G = 250
-    N = 50
-    p = 4
-    c = 0.9
-    g = 0.7
-    m = 0.25
-    obs = np.genfromtxt('measurement.csv',delimiter=',')
-    obsTime = obs[:,0]
-    #obsStor = obs[:,1]
-    dt = obsTime[1]-obsTime[0]
-    Pop = rnd.uniform(0.01, 1.00,(N,p))
-    h = np.zeros(G)
-    cf = models.interceptCostRKF45
-    cost = cf(Pop,[obs,dt])
-    costc = cost[1][1]
-    if np.isnan(np.sum(cost[1][1])):
-        # COST FUNCTION FAILURE
-        print("Cost Function Failure")
-        costc[~np.isnan(costc)] = 10000
-    h[0] = np.min(cost[1][1])
-    print("Start DE")
-    finalOut  = diffevol(Pop,cost,c,g,m,0,G,h,etol,cf,[obs,dt])
-    # Interpret the Output
-    finalPop  = finalOut[0]
-    finalCost = finalOut[1]
-    finalSSR  = finalCost[1][1]
-    #finalSims = finalCost[0]
-    opt = np.argmin(finalSSR)
-    optPars = finalPop[opt]
-    #optSims = finalSims[opt]
-    #optTime = optSims[:,0]
-    #optStor = optSims[:,1]
-    print("Parameter Values: {0}".format(optPars))
-    print("Cost: {0:8.4f}".format(np.min(finalSSR)))
-    #for p in finalSims:
-    #    plt.plot(p[:,0],p[:,1])
-    #plt.plot(obsTime,obsStor,'bs')
-    ns = np.arange(h.size)
-    plt.plot(ns,h)
-    plt.show()
-    return
-
-slugModelTest()
-interceptionModelTest()
+dePlots()

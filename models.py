@@ -165,7 +165,7 @@ def interceptCostRK4(Pars, Args):
     # Return the simulation results and the cost (SSR)
     return [simStor.T,ssr(simStor.T,obsStor)]
 
-def interceptCostRKF45(Pars, Args):
+def interceptionModel_CF(Pars, Args):
     # Extract Parameters
     A = Pars[:,0]
     B = Pars[:,1]
