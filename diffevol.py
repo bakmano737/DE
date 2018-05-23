@@ -174,11 +174,13 @@ def dePlots():
         print("\tCost: {0:10.6f}".format(np.min(stor[1])))
         storPlt.semilogy(stor[3], label=simn)
     ###
-    slugPlt.xlabel('Generation')
-    slugPlt.ylabel('Minimum SSR')
+    slugPlt.set_xlabel('Generation')
+    slugPlt.set_ylabel('Minimum SSR')
+    slugPlt.set_title('Slug Model')
     slugPlt.legend()
-    storPlt.xlabel('Generation')
-    storPlt.ylabel('Minimum SSR')
+    storPlt.set_xlabel('Generation')
+    storPlt.set_ylabel('Minimum SSR')
+    storPlt.set_title('Interception Model')
     storPlt.legend()
     plt.show()
 
