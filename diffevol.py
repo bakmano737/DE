@@ -12,28 +12,22 @@ import matplotlib.pyplot as plt
 import numpy as np
 from numpy import random as rnd
 
-##################################################
-# Differential Evolution                         #
-#  Parameters:                                   #
-#    Pop    - Initial population of parameters   #
-#    Cost   - Costs of initial population        #
-#    pcr    - Crossover probability              #
-#    gam    - Child variability factor           #
-#    pmut   - Mutation Probability               #
-#    i      - Generation counter                 #
-#    imax   - Max Generation Count               #
-#    cf     - Cost Function                      #
-#    cfargs - Cost Function Arguments            #
-#    mf     - Model Function                     #
-#    mfargs - Model Function Arguments           #
-##################################################
 ######################################################################
-def diffevol(Pop,cost,cr,gam,pmut,i,im,h,etol,cf,carg):
-    # Check Generation Counter #
-    if (im <= i):
-        # Maximum Number of generations reached
-        # Return the current population
-        return [Pop,cost]
+# Differential Evolution                                             #
+#  Parameters:                                                       #
+#    Pop    - Initial population of parameters                       #
+#    cost   - Costs of initial population                            #
+#    cr     - Crossover probability                                  #
+#    fde    - Child variability factor                               #
+#    pmut   - Mutation Probability                                   #
+#    i      - Generation counter                                     #
+#    im     - Max Generation Count                                   #
+#    etol   - Exit Tolerance (Convergance)                           #
+#    hist   - Lowest SSR of all previous generations (Analysis)      #
+#    cf     - Cost Function                                          #
+#    carg   - Cost Function Arguments                                #
+######################################################################
+def diffevol(Pop,cost,cr,fde,pmut,i,im,hist,etol,cf,carg):
     #########################
     # Step One: Selection   #
     #########################
@@ -53,7 +47,7 @@ def diffevol(Pop,cost,cr,gam,pmut,i,im,h,etol,cf,carg):
     Pcr = rnd.choice([0,1],Pop.shape,p=[1-cr,cr])
     # Recombination
     mateDiff = np.subtract(FirstMates,SecndMates)
-    crssover = np.multiply(gam*Pcr,mateDiff)
+    crssover = np.multiply(fde*Pcr,mateDiff)
     Child    = np.mod(np.add(Pop,crssover),1)
     # Mutation
     Mut = rnd.rand(*Child.shape)
@@ -63,29 +57,33 @@ def diffevol(Pop,cost,cr,gam,pmut,i,im,h,etol,cf,carg):
     # Step Three: Rejection #
     #########################
     # Evaluate Cost for Child Population
-    childCost = cf(Child,carg)
-    costc = childCost[1][1]
+    chCst = cf(Child,carg)
+    costc = chCst[1][1]
     costp = cost[1][1]
     # Replace dominated offspring with parent
-    if np.isnan(np.sum(costc)):
-        # COST FUNCTION FAILURE
-        print("Cost Function Failure")
-        costc[~np.isnan(costc)] = 1e9
     dom = np.array(np.greater(costc,costp)).reshape((-1,))
     Child[dom] = Pop[dom]
     np.minimum(costc,costp,out=costc)
-    childCost[1][1] = costc
+    chCst[1][1] = costc
 
     # Best in show
     best = np.min(costc)
-    h[i] = best
-    if best <= etol:
-        return [Child,childCost]
+    hist[i] = best
+
+    # Check convergance
+    #if best <= etol:
+    #   return [Child,chCst]
+
+    # Check Generation Counter 
+    if (im <= i+1):
+        # Maximum Number of generations reached
+        # Return the current population
+        return [Child,chCst]
 
     ##############################
     # Create the next generation #
     ##############################
-    return diffevol(Child,childCost,cr,gam,pmut,i+1,im,h,etol,cf,carg)
+    return diffevol(Child,chCst,cr,fde,pmut,i+1,im,hist,etol,cf,carg)
 
 ######################################################################
 # Simulator Function - Use this to run DE and process the reuslts    #
@@ -128,7 +126,7 @@ def dePlots():
     etol = 1e-6
 
     ##################################################################
-    # Slug Model
+    # Simulation of the Models
     ##################################################################
     obsSlug  = np.array([0.55,0.47,0.30,0.22,0.17,0.14])
     obsTime  = np.array([5.00,10.0,20.0,30.0,40.0,50.0])
@@ -152,8 +150,9 @@ def dePlots():
         Stors.append(deSimulate(G,N,iP,pcr,fde,ipm,etol,icf,ica))
         sims -= 1
 
-    # Plot Slug Model Results
-    ###
+    ##################################################################
+    # Print and Plot Simulation Results
+    ##################################################################
     slugPlt = plt.subplot(121)
     storPlt = plt.subplot(122)
     for i,(slug,stor) in enumerate(zip(Slugs,Stors)):
@@ -173,7 +172,6 @@ def dePlots():
         print("\t\td={0:6.4f}".format(3.0*stor[0][3]))
         print("\tCost: {0:10.6f}".format(np.min(stor[1])))
         storPlt.semilogy(stor[3], label=simn)
-    ###
     slugPlt.set_xlabel('Generation')
     slugPlt.set_ylabel('Minimum SSR')
     slugPlt.set_title('Slug Model')
