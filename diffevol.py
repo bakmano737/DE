@@ -14,6 +14,11 @@ from numpy import random as rnd
 
 ######################################################################
 # Differential Evolution                                             #
+######################################################################
+#  Recombination:                                                    #
+#    child = parent + fde*(mate1-mate2)                              #
+#    mate1 - First randomly selected member of the population        #
+#    mate2 - Second randomly selected member of the population       #
 #  Parameters:                                                       #
 #    Pop    - Initial population of parameters                       #
 #    cost   - Costs of initial population                            #
@@ -86,6 +91,90 @@ def diffevol(Pop,cost,cr,fde,pmut,i,im,hist,etol,cf,carg):
     return diffevol(Child,chCst,cr,fde,pmut,i+1,im,hist,etol,cf,carg)
 
 ######################################################################
+# Differential Evolution Alternate Recombination                     #
+######################################################################
+#  Recombination:                                                    #
+#    child = parent + fde*(mate1-mate2) + lam*(best-parent)          #
+#    best  - Individual with lowest SSR in current generation        #
+#    mate1 - First randomly selected member of the population        #
+#    mate2 - Second randomly selected member of the population       #
+#  Parameters:                                                       #
+#    Pop   - Initial population of parameters                        #
+#    cost  - Costs of initial population                             #
+#    cr    - Crossover probability                                   #
+#    fde   - Child variability factor                                #
+#    lam   - Best parent scaling factor                              #
+#    pmut  - Mutation Probability                                    #
+#    i     - Generation counter                                      #
+#    im    - Max Generation Count                                    #
+#    etol  - Exit Tolerance (Convergance)                            #
+#    hist  - Lowest SSR of all previous generations (Analysis)       #
+#    cf    - Cost Function                                           #
+#    carg  - Cost Function Arguments                                 #
+######################################################################
+def dealt(Pop,cost,cr,fde,lam,pmut,i,im,hist,etol,cf,carg):
+    #########################
+    # Step One: Selection   #
+    #########################
+    # Generate two unique random integers #
+    # for each member of the population   #
+    r = rnd.choice(Pop[:,0].size, (Pop[:,0].size,2))
+    # Replace pairs of duplicates with a unique pair
+    dup    = r[:,0]==r[:,1]
+    r[dup] = rnd.choice(Pop[:,0].size,r[dup].shape,False)
+    # Define the mating partners
+    FirstMates = Pop[r[:,0],:]
+    SecndMates = Pop[r[:,1],:]
+    # Best in show
+    besti = np.argmin(cost)
+    bestp = Pop[besti,:]
+    hist[i] = cost[besti]
+
+    ####################
+    # Step Two: Mating #
+    ####################
+    # Partial Crossover
+    Pcr = rnd.choice([0,1],Pop.shape,p=[1-cr,cr])
+    # Recombination
+    mateDiff = np.subtract(FirstMates,SecndMates)
+    bestDiff = np.subtract(Pop,bestp)
+    crssover = np.multiply(fde*Pcr,mateDiff)
+    bestover = np.multiply(lam,bestDiff)
+    fullover = np.add(crssover,bestover)
+    Child    = np.mod(np.add(Pop,fullover),1)
+    # Mutation
+    Mut = rnd.rand(*Child.shape)
+    Mut = Mut<pmut
+    Child[Mut] = rnd.rand(*Child[Mut].shape)
+    #########################
+    # Step Three: Rejection #
+    #########################
+    # Evaluate Cost for Child Population
+    chCst = cf(Child,carg)
+    costc = chCst[1][1]
+    costp = cost[1][1]
+    # Replace dominated offspring with parent
+    dom = np.array(np.greater(costc,costp)).reshape((-1,))
+    Child[dom] = Pop[dom]
+    np.minimum(costc,costp,out=costc)
+    chCst[1][1] = costc
+
+    # Check convergance
+    #if best <= etol:
+    #   return [Child,chCst]
+
+    # Check Generation Counter 
+    if (im <= i+1):
+        # Maximum Number of generations reached
+        # Return the current population
+        return [Child,chCst]
+
+    ##############################
+    # Create the next generation #
+    ##############################
+    return dealt(Child,chCst,cr,fde,lam,pmut,i+1,im,hist,etol,cf,carg)
+
+######################################################################
 # Simulator Function - Use this to run DE and process the reuslts    #
 ######################################################################
 def deSimulate(G,N,P,pcr,fde,pmut,etol,cf,carg):
@@ -128,23 +217,35 @@ def dePlots():
     ##################################################################
     # Simulation of the Models
     ##################################################################
+    # Slug Model Initialization
+    # Observed Slug data
     obsSlug  = np.array([0.55,0.47,0.30,0.22,0.17,0.14])
     obsTime  = np.array([5.00,10.0,20.0,30.0,40.0,50.0])
-    sP = 2
-    d = 10
-    Q = 50
-    spm = float(1)/float(sP)
-    scf = models.slugCost
-    sca = [obsTime,Q,d,obsSlug]
-    Slugs = []
+    # Slug model known values
+    sP = 2 # Number of paramters used by slug model
+    d = 10 # Observation well distance (m)
+    Q = 50 # Injected slug colume (m^3)
+    spm = float(1)/float(sP) # Slug model mutation probability
+    # Slug model cost function handle and arguments
+    scf = models.slugCost 
+    sca = [obsTime,Q,d,obsSlug] # Slug model cost function args
+    Slugs = [] # Initial empty array for results
+    
+    # Interception Model Initialization
+    # Observed Storage, Precipitation, and Potential Evaporation
     Obs = np.genfromtxt('measurement.csv',delimiter=',')
+    # Observation Time Step
     dt = Obs[1,0] - Obs[0,0]
-    ica = [Obs,dt]
-    iP = 4
-    ipm = float(1)/float(iP)
+    iP = 4 # Number of parameters used by Interception Model
+    ipm = float(1)/float(iP) # Interception model mutation probability
+    # Interception Model Cost Function Handle
     icf = models.interceptionModel_CF
-    Stors = []
-    sims = 3
+    # Interception Model args
+    ica = [Obs,dt]
+    Stors = [] # Initial empty array for storage results
+
+    # Run Simulations
+    sims = 3 # Number of simulatins to run
     while sims > 0:
         Slugs.append(deSimulate(G,N,sP,pcr,fde,spm,etol,scf,sca))
         Stors.append(deSimulate(G,N,iP,pcr,fde,ipm,etol,icf,ica))
