@@ -234,9 +234,9 @@ def dePlots():
     # Recombination Variability
     fde = 0.7
     # Recombination Variability (Exploration)
-    fda = 0.5
+    fda = 0.3
     # Exploitation Factor
-    lam = 0.5
+    lam = 0.7
     # Exit Error Tolerance
     etol = 1e-6
 
