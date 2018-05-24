@@ -126,9 +126,9 @@ def dealt(Pop,cost,cr,fde,lam,pmut,i,im,hist,etol,cf,carg):
     FirstMates = Pop[r[:,0],:]
     SecndMates = Pop[r[:,1],:]
     # Best in show
-    besti = np.argmin(cost)
+    besti = np.argmin(cost[1][1])
     bestp = Pop[besti,:]
-    hist[i] = cost[besti]
+    hist[i] = cost[1][1][besti]
 
     ####################
     # Step Two: Mating #
@@ -234,9 +234,9 @@ def dePlots():
     # Recombination Variability
     fde = 0.7
     # Recombination Variability (Exploration)
-    fdea = 0.3
+    fda = 0.5
     # Exploitation Factor
-    lam = 0.7
+    lam = 0.5
     # Exit Error Tolerance
     etol = 1e-6
 
@@ -275,10 +275,10 @@ def dePlots():
     # Run Simulations
     sims = 3 # Number of simulatins to run
     while sims > 0:
-        Slugs.append(deSimulate( G,N,sP,pcr,fde,     spm,etol,scf,sca))
-        Sluga.append(deaSimulate(G,N,sP,pcr,fdea,lam,spm,etol,scf,sca))
-        Stors.append(deSimulate( G,N,iP,pcr,fde,     ipm,etol,icf,ica))
-        Stora.append(deaSimulate(G,N,iP,pcr,fdea,lam,ipm,etol,icf,ica))
+        Slugs.append(deSimulate( G,N,sP,pcr,fde,    spm,etol,scf,sca))
+        Sluga.append(deaSimulate(G,N,sP,pcr,fda,lam,spm,etol,scf,sca))
+        Stors.append(deSimulate( G,N,iP,pcr,fde,    ipm,etol,icf,ica))
+        Stora.append(deaSimulate(G,N,iP,pcr,fda,lam,ipm,etol,icf,ica))
         sims -= 1
 
     ##################################################################
