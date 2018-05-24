@@ -137,9 +137,9 @@ def dealt(Pop,cost,cr,fde,lam,pmut,i,im,hist,etol,cf,carg):
     Pcr = rnd.choice([0,1],Pop.shape,p=[1-cr,cr])
     # Recombination
     mateDiff = np.subtract(FirstMates,SecndMates)
-    bestDiff = np.subtract(Pop,bestp)
+    bestDiff = np.subtract(bestp,Pop)
     crssover = np.multiply(fde*Pcr,mateDiff)
-    bestover = np.multiply(lam,bestDiff)
+    bestover = np.multiply(lam*Pcr,bestDiff)
     fullover = np.add(crssover,bestover)
     Child    = np.mod(np.add(Pop,fullover),1)
     # Mutation
