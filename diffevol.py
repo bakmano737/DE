@@ -199,6 +199,28 @@ def deSimulate(G,N,P,pcr,fde,pmut,etol,cf,carg):
     # Save the current output for later
     return [BestPars,BestCost,BestVals,Hist]
 
+def deaSimulate(G,N,P,pcr,fde,lam,pmut,etol,cf,carg):
+    # Create the history array
+    Hist = np.zeros(G)
+    # Create an initial population
+    Pop = rnd.rand(N,P)
+    # Evaluate cost function for initial pop
+    Cost = cf(Pop,carg)
+    # Run DE
+    FinalGen = dealt(Pop,Cost,pcr,fde,lam,pmut,0,G,Hist,etol,cf,carg)
+    # Parse the output [Population,[[simtim,simslug],[res,ssr]]]
+    FinalPop = FinalGen[0]
+    FinalCst = FinalGen[1]
+    FinalSSR = FinalCst[1][1]
+    # Determine the individual with the lowest SSR
+    optimum  = np.argmin(FinalSSR)
+    # Get the parameters, cost, and simulation of the champion
+    BestPars = FinalPop[optimum]
+    BestCost = FinalSSR[optimum]
+    BestVals = FinalCst[0][optimum]
+    # Save the current output for later
+    return [BestPars,BestCost,BestVals,Hist]
+
 # Problem #8 - Plots
 # Use this function to plot the reuslts for Slug and Storage models
 def dePlots():
@@ -211,6 +233,10 @@ def dePlots():
     pcr = 0.9
     # Recombination Variability
     fde = 0.7
+    # Recombination Variability (Exploration)
+    fdea = 0.3
+    # Exploitation Factor
+    lam = 0.7
     # Exit Error Tolerance
     etol = 1e-6
 
@@ -230,6 +256,7 @@ def dePlots():
     scf = models.slugCost 
     sca = [obsTime,Q,d,obsSlug] # Slug model cost function args
     Slugs = [] # Initial empty array for results
+    Sluga = [] # Initial empty array for alternate results
     
     # Interception Model Initialization
     # Observed Storage, Precipitation, and Potential Evaporation
@@ -243,21 +270,26 @@ def dePlots():
     # Interception Model args
     ica = [Obs,dt]
     Stors = [] # Initial empty array for storage results
+    Stora = [] # Initial empty array for alternate storage results
 
     # Run Simulations
     sims = 3 # Number of simulatins to run
     while sims > 0:
-        Slugs.append(deSimulate(G,N,sP,pcr,fde,spm,etol,scf,sca))
-        Stors.append(deSimulate(G,N,iP,pcr,fde,ipm,etol,icf,ica))
+        Slugs.append(deSimulate( G,N,sP,pcr,fde,     spm,etol,scf,sca))
+        Sluga.append(deaSimulate(G,N,sP,pcr,fdea,lam,spm,etol,scf,sca))
+        Stors.append(deSimulate( G,N,iP,pcr,fde,     ipm,etol,icf,ica))
+        Stora.append(deaSimulate(G,N,iP,pcr,fdea,lam,ipm,etol,icf,ica))
         sims -= 1
 
     ##################################################################
     # Print and Plot Simulation Results
     ##################################################################
-    slugPlt = plt.subplot(121)
-    storPlt = plt.subplot(122)
-    for i,(slug,stor) in enumerate(zip(Slugs,Stors)):
-        simn = "Sim {0}".format(i)
+    slugPlt = plt.subplot(221)
+    storPlt = plt.subplot(222)
+    alugPlt = plt.subplot(223)
+    atorPlt = plt.subplot(224)
+    for i,(slug,stor,alug,ator) in enumerate(zip(Slugs,Stors,Sluga,Stora)):
+        simn = "Sim {0}".format(i+1)
         print(simn)
         print("Slug Model")
         print("\tParameter Values:")
@@ -273,6 +305,20 @@ def dePlots():
         print("\t\td={0:6.4f}".format(3.0*stor[0][3]))
         print("\tCost: {0:10.6f}".format(np.min(stor[1])))
         storPlt.semilogy(stor[3], label=simn)
+        print("Slug Model: Alternate Recombination")
+        print("\tParameter Values:")
+        print("\t\tS={0:6.4f}".format(alug[0][0]))
+        print("\t\tT={0:6.4f}".format(alug[0][1]))
+        print("\tCost: {0:10.6f}".format(np.min(alug[1])))
+        alugPlt.semilogy(alug[3], label=simn)
+        print("Interception Model: Alternate Recombination")
+        print("\tParameter Values:")
+        print("\t\ta={0:6.4f}".format(ator[0][0]))
+        print("\t\tb={0:6.3f}".format(999*ator[0][1]+1))
+        print("\t\tc={0:6.4f}".format(5.0*ator[0][2]))
+        print("\t\td={0:6.4f}".format(3.0*ator[0][3]))
+        print("\tCost: {0:10.6f}".format(np.min(ator[1])))
+        atorPlt.semilogy(ator[3], label=simn)
     slugPlt.set_xlabel('Generation')
     slugPlt.set_ylabel('Minimum SSR')
     slugPlt.set_title('Slug Model')
@@ -281,6 +327,14 @@ def dePlots():
     storPlt.set_ylabel('Minimum SSR')
     storPlt.set_title('Interception Model')
     storPlt.legend()
+    alugPlt.set_xlabel('Generation')
+    alugPlt.set_ylabel('Minimum SSR')
+    alugPlt.set_title('Slug Model: Alternate Recombination')
+    alugPlt.legend()
+    atorPlt.set_xlabel('Generation')
+    atorPlt.set_ylabel('Minimum SSR')
+    atorPlt.set_title('Interception Model: Alternate Recombination')
+    atorPlt.legend()
     plt.show()
 
 dePlots()
